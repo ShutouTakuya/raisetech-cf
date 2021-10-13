@@ -1,0 +1,77 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Create BationServer
+
+Parameters:
+  SystemName:
+    Type: String
+    Default: raisetech
+    Description: System Name
+  EnvName:
+    Type: String
+    Default: dev
+    Description: Envireonmnet Name
+    AllowedValues:
+      - prod
+      - stg
+      - dev
+  AMIId:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2
+  InstanceType:
+    Description: WebServer EC2 instance type
+    Type: String
+    Default: t2.micro
+    ConstraintDescription: must be a valid EC2 instance type
+  VolumeSize:
+    Type: Number
+    Default: 8
+  KeyName:
+    Description: The EC2 Key Pair
+    Type: AWS::EC2::KeyPair::KeyName
+  DeviceName:
+    Type: String
+    Default: /dev/xvda
+  VolumeType:
+    Type: String
+    Default: gp2
+
+Resources:
+  BationEC2Instance1A:
+    Type: AWS::EC2::Instance
+    Properties:
+      KeyName: !Ref KeyName
+      DisableApiTermination: false
+      ImageId: !Ref AMIId
+      SubnetId: !ImportValue FrontPublicSubnet1A
+      InstanceType: !Ref InstanceType
+      Monitoring: false
+      BlockDeviceMappings:
+        - DeviceName: !Ref DeviceName
+          Ebs:
+            VolumeType: !Ref VolumeType
+            VolumeSize: !Ref VolumeSize
+      SecurityGroupIds:
+        - !ImportValue BationSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub "${SystemName}-${EnvName}-bation-server-1a"
+
+  # BationEC2Instance1C:
+  #   Type: AWS::EC2::Instance
+  #   Properties:
+  #     KeyName: !Ref KeyName
+  #     DisableApiTermination: false
+  #     ImageId: !Ref AMIId
+  #     SubnetId: !ImportValue FrontPublicSubnet1C
+  #     InstanceType: !Ref InstanceType
+  #     Monitoring: false
+  #     BlockDeviceMappings:
+  #       - DeviceName: !Ref DeviceName
+  #         Ebs:
+  #           VolumeType: !Ref VolumeType
+  #           VolumeSize: !Ref VolumeSize
+  #     SecurityGroupIds:
+  #       - !Ref BationSecurityGroup
+  #     Tags:
+  #       - Key: Name
+  #         Value: !Sub "${SystemName}-${EnvName}-bation-server-1c"

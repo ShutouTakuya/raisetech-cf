@@ -1,0 +1,236 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Create EC2 Instance
+
+Parameters:
+  SystemName:
+    Type: String
+    Default: raisetech
+    Description: System Name
+  EnvName:
+    Type: String
+    Default: dev
+    Description: Envireonmnet Name
+    AllowedValues:
+      - prod
+      - stg
+      - dev
+  AMIId:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2
+  InstanceType:
+    Description: WebServer EC2 instance type
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+      - t1.micro
+      - t2.nano
+      - t2.micro
+      - t2.small
+      - t2.medium
+      - t2.large
+    ConstraintDescription: must be a valid EC2 instance type
+  VolumeSize:
+    Type: Number
+    Default: 8
+    AllowedValues:
+      - 8
+      - 20
+      - 30
+      - 50
+  KeyName:
+    Description: The EC2 Key Pair
+    Type: AWS::EC2::KeyPair::KeyName
+  DeviceName:
+    Type: String
+    Default: /dev/xvda
+  VolumeType:
+    Type: String
+    Default: gp2
+
+Resources:
+  # WebEC2
+  WebEC2Instance1A:
+    Type: AWS::EC2::Instance
+    Properties:
+      KeyName: !Ref KeyName
+      DisableApiTermination: false
+      ImageId: !Ref AMIId
+      SubnetId: !ImportValue WebAppPrivateSubnet1A
+      InstanceType: !Ref InstanceType
+      Monitoring: false
+      BlockDeviceMappings:
+        - DeviceName: !Ref DeviceName
+          Ebs:
+            VolumeType: !Ref VolumeType
+            VolumeSize: !Ref VolumeSize
+      SecurityGroupIds:
+        - !ImportValue WebSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub "${SystemName}-${EnvName}-web-server-1a"
+
+  WebEC2Instance1C:
+    Type: AWS::EC2::Instance
+    Properties:
+      KeyName: !Ref KeyName
+      DisableApiTermination: false
+      ImageId: !Ref AMIId
+      SubnetId: !ImportValue WebAppPrivateSubnet1C
+      InstanceType: !Ref InstanceType
+      Monitoring: false
+      BlockDeviceMappings:
+        - DeviceName: !Ref DeviceName
+          Ebs:
+            VolumeType: !Ref VolumeType
+            VolumeSize: !Ref VolumeSize
+      SecurityGroupIds:
+        - !ImportValue WebSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub "${SystemName}-${EnvName}-web-server-1c"
+
+  # AppEC2
+  AppEC2Instance1A:
+    Type: AWS::EC2::Instance
+    Properties:
+      KeyName: !Ref KeyName
+      DisableApiTermination: false
+      ImageId: !Ref AMIId
+      SubnetId: !ImportValue WebAppPrivateSubnet1A
+      InstanceType: !Ref InstanceType
+      Monitoring: false
+      BlockDeviceMappings:
+        - DeviceName: !Ref DeviceName
+          Ebs:
+            VolumeType: !Ref VolumeType
+            VolumeSize: !Ref VolumeSize
+      SecurityGroupIds:
+        - !ImportValue AppSecurityGroup
+      IamInstanceProfile: 
+        !Ref S3AccessInstanceProfile
+      Tags:
+        - Key: Name
+          Value: !Sub "${SystemName}-${EnvName}-app-server-1a"
+
+  AppEC2Instance1C:
+    Type: AWS::EC2::Instance
+    Properties:
+      KeyName: !Ref KeyName
+      DisableApiTermination: false
+      ImageId: !Ref AMIId
+      SubnetId: !ImportValue WebAppPrivateSubnet1C
+      InstanceType: !Ref InstanceType
+      Monitoring: false
+      BlockDeviceMappings:
+        - DeviceName: !Ref DeviceName
+          Ebs:
+            VolumeType: !Ref VolumeType
+            VolumeSize: !Ref VolumeSize
+      SecurityGroupIds:
+        - !ImportValue AppSecurityGroup
+      IamInstanceProfile: 
+        !Ref S3AccessInstanceProfile
+      Tags:
+        - Key: Name
+          Value: !Sub "${SystemName}-${EnvName}-app-server-1c"
+
+  # IAMRole S3Access
+  S3AccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument: 
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Policies:
+        - 
+          PolicyName: "AppEC2S3Access"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - 
+                Effect: "Allow"
+                Action: "S3:*"
+                Resource: "*"
+  S3AccessInstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Path: /
+      Roles:
+        - !Ref S3AccessRole  
+
+  # NatGateway
+  PublicNatGateway1A:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt PublicNatGateway1AEIP.AllocationId
+      ConnectivityType: public
+      SubnetId: !ImportValue FrontPublicSubnet1A
+      Tags:
+        - Key: Name
+          Value: !Sub "${SystemName}-${EnvName}-public-ngw-1a"
+  PublicNatGateway1AEIP: 
+    Type: "AWS::EC2::EIP"
+    # Condition: EnablePublicNatGateway1A
+    Properties: 
+      Domain: vpc
+  PublicNatGateway1ARoute:
+    Type: "AWS::EC2::Route"
+    # Condition: EnablePublicNatGateway1A
+    Properties:
+      RouteTableId: !ImportValue WebAppPrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref PublicNatGateway1A
+
+  # PublicNatGateway1C:
+  #   Type: AWS::EC2::NatGateway
+  #   Properties:
+  #     AllocationId: !GetAtt PublicNatGateway1CEIP.AllocationId
+  #     ConnectivityType: public
+  #     SubnetId: !ImportValue FrontPublicSubnet1C
+  #     Tags:
+  #       - Key: Name
+  #         Value: !Sub "${SystemName}-${EnvName}-public-ngw-1c"
+  # PublicNatGateway1CEIP: 
+  #   Type: "AWS::EC2::EIP"
+  #   # Condition: EnablePublicNatGateway1C
+  #   Properties: 
+  #     Domain: vpc
+  # PublicNatGateway1CRoute:
+  #   Type: "AWS::EC2::Route"
+  #   # Condition: EnablePublicNatGateway1C
+  #   Properties:
+  #     RouteTableId: !ImportValue AppPrivateRouteTable
+  #     DestinationCidrBlock: 0.0.0.0/0
+  #     NatGatewayId: !Ref PublicNatGateway1C
+
+Outputs:
+  StackWebEC2Instance1A:
+    Description: The ID of the WebEC2Instance1A
+    Value: !Ref WebEC2Instance1A
+    Export:
+      Name: WebEC2Instance1A
+
+  StackWebEC2Instance1C:
+    Description: The ID of the WebEC2Instance1C
+    Value: !Ref WebEC2Instance1C
+    Export:
+      Name: WebEC2Instance1C
+
+  # SatckAppEC2Instance1A:
+  #   Description: The ID of the AppEC2Instance1A
+  #   Value: !Ref AppEC2Instance1A
+  #   Export:
+  #     Name: AppEC2Instance
+
+  # SatckAppEC2Instance1A:
+  #   Description: The ID of the AppEC2Instance
+  #   Value: !Ref AppEC2Instance
+  #   Export:
+  #     Name: AppEC2Instance

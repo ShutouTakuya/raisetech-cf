@@ -1,0 +1,42 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Create Route53
+
+Parameters:
+  # SystemName:
+  #   Type: String
+  #   Default: raisetech
+  #   Description: System Name
+  # EnvName:
+  #   Type: String
+  #   Default: dev
+  #   Description: Envireonmnet Name
+  #   AllowedValues:
+  #     - prod
+  #     - stg
+  #     - dev
+  HostedZoneName:
+    Description: domain name.
+    Type: String
+
+Resources:
+  Route53HostedZone:
+    Type: AWS::Route53::HostedZone
+    Properties:
+      Name: !Sub "${HostedZoneName}"
+  route53RSGroup:
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      HostedZoneId: !Ref Route53HostedZone
+      RecordSets:
+        - Name: !Sub "www.${HostedZoneName}."
+          AliasTarget:
+            HostedZoneId: !ImportValue ALBHostZoneID
+            DNSName: !ImportValue ALBDNSName
+          Type: A
+
+Outputs:
+  StackRoute53HostedZone:
+    Description: The ID of the Route53HostedZone
+    Value: !Ref Route53HostedZone
+    Export:
+      Name: Route53HostedZone

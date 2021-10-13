@@ -1,0 +1,215 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Create VPC & subnet
+
+Parameters:
+  SystemName:
+    Type: String
+    Default: raisetech
+    Description: System Name
+  EnvName:
+    Type: String
+    Default: dev
+    Description: Envireonmnet Name
+    AllowedValues:
+      - prod
+      - stg
+      - dev
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 20.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      InstanceTenancy: default
+      Tags:
+        - Key: Name
+          Value: !Sub "${SystemName}-${EnvName}-vpc"
+
+  # RouteTables
+  FrontPublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${SystemName}-${EnvName}-front-public-rt"
+  WebAppPrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${SystemName}-${EnvName}-web-app-private-rt"
+  DBPrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${SystemName}-${EnvName}-db-private-rt"
+
+  # Front Subnet
+  FrontPublicSubnet1A:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 20.0.0.0/24
+      AvailabilityZone: "ap-northeast-1a"
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${SystemName}-${EnvName}-front-public-subnet-1a"
+  FrontPublicSubnet1ARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref FrontPublicSubnet1A
+      RouteTableId: !Ref FrontPublicRouteTable
+
+  FrontPublicSubnet1C:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 20.0.1.0/24
+      AvailabilityZone: "ap-northeast-1c"
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${SystemName}-${EnvName}-front-public-subnet-1c"
+  FrontPublicSubnet1CRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref FrontPublicSubnet1C
+      RouteTableId: !Ref FrontPublicRouteTable
+
+  # Web and App Subnet
+  WebAppPrivateSubnet1A:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 20.0.20.0/24
+      AvailabilityZone: "ap-northeast-1a"
+      Tags:
+        - Key: Name
+          Value: !Sub "${SystemName}-${EnvName}-web-app-private-subnet-1a"
+  WebAppPrivateSubnet1ARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref WebAppPrivateSubnet1A
+      RouteTableId: !Ref WebAppPrivateRouteTable
+
+  WebAppPrivateSubnet1C:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 20.0.21.0/24
+      AvailabilityZone: "ap-northeast-1c"
+      Tags:
+        - Key: Name
+          Value: !Sub "${SystemName}-${EnvName}-web-app-private-subnet-1c"
+  WebAppPrivateSubnet1CRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref WebAppPrivateSubnet1C
+      RouteTableId: !Ref WebAppPrivateRouteTable
+
+  # DB Subnet
+  DBPrivateSubnet1A:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 20.0.40.0/24
+      AvailabilityZone: "ap-northeast-1a"
+      Tags:
+        - Key: Name
+          Value: !Sub "${SystemName}-${EnvName}-db-private-subnet-1a"
+  DBPrivateSubnet1ARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref DBPrivateSubnet1A
+      RouteTableId: !Ref DBPrivateRouteTable
+
+  DBPrivateSubnet1C:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 20.0.41.0/24
+      AvailabilityZone: "ap-northeast-1c"
+      Tags:
+        - Key: Name
+          Value: !Sub "${SystemName}-${EnvName}-db-private-subnet-1c"
+  DBPrivateSubnet1CRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref DBPrivateSubnet1C
+      RouteTableId: !Ref WebAppPrivateRouteTable
+
+  # InternetGateway
+  InternetGateway:
+    Type: "AWS::EC2::InternetGateway"
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub "${SystemName}-${EnvName}-igw"
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+  InternetGatewayRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGateway
+    Properties:
+      RouteTableId: !Ref FrontPublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+Outputs:
+  StackVPC:
+    Description: The ID of the VPC
+    Value: !Ref VPC
+    Export:
+      Name: VPCID
+
+  StackFrontPublicSubnet1A:
+    Description: The ID of the FrontPublicSubnet1A
+    Value: !Ref FrontPublicSubnet1A
+    Export:
+      Name: FrontPublicSubnet1A
+
+  StackFrontPublicSubnet1C:
+    Description: The ID of the FrontPublicSubnet1C
+    Value: !Ref FrontPublicSubnet1C
+    Export:
+      Name: FrontPublicSubnet1C
+
+  StackWebAppPrivateSubnet1A:
+    Description: The ID of the WebAppPrivateSubnet1A
+    Value: !Ref WebAppPrivateSubnet1A
+    Export:
+      Name: WebAppPrivateSubnet1A
+
+  StackWebAppPrivateSubnet1C:
+    Description: The ID of the WebAppPrivateSubnet1C
+    Value: !Ref WebAppPrivateSubnet1C
+    Export:
+      Name: WebAppPrivateSubnet1C
+
+  StackDBPrivateSubnet1A:
+    Description: The ID of the DBPrivateSubnet1A
+    Value: !Ref DBPrivateSubnet1A
+    Export:
+      Name: DBPrivateSubnet1A
+
+  StackDBPrivateSubnet1C:
+    Description: The ID of the DBPrivateSubnet1C
+    Value: !Ref DBPrivateSubnet1C
+    Export:
+      Name: DBPrivateSubnet1C
+
+  StackWebAppPrivateRouteTable:
+    Description: The ID of the WebAppPrivateRouteTable
+    Value: !Ref WebAppPrivateRouteTable
+    Export:
+      Name: WebAppPrivateRouteTable

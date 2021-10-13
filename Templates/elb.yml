@@ -1,0 +1,93 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Create ALB
+
+Parameters:
+  SystemName:
+    Type: String
+    Default: raisetech
+    Description: System Name
+  EnvName:
+    Type: String
+    Default: dev
+    Description: Envireonmnet Name
+    AllowedValues:
+      - prod
+      - stg
+      - dev
+
+Resources:
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckEnabled: true
+      HealthCheckIntervalSeconds: "10"
+      HealthCheckPath: /
+      HealthCheckPort: 80
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: "5"
+      HealthyThresholdCount: "3"
+      Name: !Sub "${SystemName}-${EnvName}-tg"
+      Port: 80
+      Protocol: HTTP
+      ProtocolVersion: HTTP1
+      TargetType: instance
+      Targets:
+        - Id: !ImportValue WebEC2Instance1A
+        - Id: !ImportValue WebEC2Instance1C
+      VpcId: !ImportValue VPCID
+
+  ALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Type: application
+      Name: !Sub "${SystemName}-${EnvName}-alb"
+      Scheme: internet-facing
+      SecurityGroups:
+        - !ImportValue ALBSecurityGroup
+      Subnets:
+        - !ImportValue FrontPublicSubnet1A
+        - !ImportValue FrontPublicSubnet1C
+      Tags:
+        - Key: Name
+          Value: !Sub "${SystemName}-${EnvName}-alb"
+
+  ALBListenerHTTP:
+    Type: "AWS::ElasticLoadBalancingV2::Listener"
+    Properties:
+      LoadBalancerArn: !Ref ALB
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: redirect
+          RedirectConfig:
+            Host: '#{host}'
+            Path: /#{path}
+            Port: '443'
+            Protocol: HTTPS
+            Query: '#{query}'
+            StatusCode: HTTP_301
+
+Outputs:
+  StackALBDNSname:
+    Description: ALB DNSName
+    Value: !GetAtt ALB.DNSName
+    Export:
+      Name: ALBDNSName
+
+  StackALBHostzoneID:
+    Description: ALB HostZoneID
+    Value: !GetAtt ALB.CanonicalHostedZoneID
+    Export:
+      Name: ALBHostZoneID
+
+  StackTargetGroup:
+    Description: The ID of the TargetGroup
+    Value: !Ref TargetGroup
+    Export:
+      Name: TargetGroup
+
+  StackALB:
+    Description: The ID of the ALB
+    Value: !Ref ALB
+    Export:
+      Name: ALB

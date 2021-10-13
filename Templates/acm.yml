@@ -1,0 +1,50 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Create acm
+
+Parameters:
+  # SystemName:
+  #   Type: String
+  #   Default: raisetech
+  #   Description: System Name
+  # EnvName:
+  #   Type: String
+  #   Default: dev
+  #   Description: Envireonmnet Name
+  #   AllowedValues:
+  #     - prod
+  #     - stg
+  #     - dev
+  record01:
+    Type: String
+    Default: aws-test-tky.work
+    Description: domain name
+
+Resources:
+  ACM:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      # 証明書を取得するドメイン名を設定します。 (パラメータで入力したドメイン名が入ります。)
+      DomainName: !Sub "${record01}"
+      # DNS検証を行うドメインを設定します。 (上記同様にドメイン名が入ります。)
+      DomainValidationOptions:
+        - DomainName: !Sub "${record01}"
+          # Route53のホストゾーンIDをインポートして読み込みます。 (別スタックでアウトプットしておく必要有)
+          HostedZoneId: !ImportValue Route53HostedZone
+      # 追加で取得したい証明書を設定します。 (今回はワイルドカード証明書を取得します。)
+      SubjectAlternativeNames:
+        # ワイルドカードを取得する場合は、ドメイン名の手前に*.をつけます。
+        - !Sub "*.${record01}"
+      # 検証方法はDNSを指定します。
+      ValidationMethod: DNS
+
+  ALBListenerHTTPS:
+    Type: "AWS::ElasticLoadBalancingV2::Listener"
+    Properties:
+      DefaultActions:
+        - TargetGroupArn: !ImportValue  TargetGroup
+          Type: forward
+      LoadBalancerArn: !ImportValue  ALB
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: !Ref ACM

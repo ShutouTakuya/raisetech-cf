@@ -1,0 +1,42 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Create S3 Bucket
+
+Parameters:
+  SystemName:
+    Type: String
+    Default: raisetech
+    Description: System Name
+  EnvName:
+    Type: String
+    Default: dev
+    Description: Envireonmnet Name
+    AllowedValues:
+      - prod
+      - stg
+      - dev
+  S3BucketName:
+    Description: Type of this BacketName.
+    Type: String
+
+Resources:
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${SystemName}-${EnvName}-${S3BucketName}"
+      AccessControl: Private
+
+  S3BucketPolicy:
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      Bucket: !Ref S3Bucket
+      PolicyDocument:
+        Statement:
+          - Action:
+              - "s3:GetObject"
+            Effect: "Allow"
+            Resource: !Sub "arn:aws:s3"${SystemName}-${EnvName}-${S3BucketName}/*"
+            Principal: "*"
+
+# Outputs:
+#   S3BucketName:
+#   Value: !Ref S3Bucket

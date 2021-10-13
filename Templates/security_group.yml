@@ -1,0 +1,146 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Create SecurityGroup
+
+Parameters:
+  SystemName:
+    Type: String
+    Default: raisetech
+    Description: System Name
+  EnvName:
+    Type: String
+    Default: dev
+    Description: Envireonmnet Name
+    AllowedValues:
+      - prod
+      - stg
+      - dev
+  MyIP:
+    Description: IP address allowed to access EC2 # http://checkip.amazonaws.com/
+    Type: String
+
+Resources:
+  BationSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub "${SystemName}-${EnvName}-bation-security-group"
+      GroupDescription: SSH from mylaptop
+      VpcId: !ImportValue VPCID
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref MyIP
+      Tags:
+        - Key: Name
+          Value: !Sub "${SystemName}-${EnvName}-bation-sg"
+
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub "${SystemName}-${EnvName}-alb-security-group"
+      GroupDescription: HTTP and HTTPS from anywhere
+      VpcId: !ImportValue VPCID
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub "${SystemName}-${EnvName}-alb-sg"
+          
+  WebSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub "${SystemName}-${EnvName}-web-security-group"
+      GroupDescription: HTTP and HTTPS from anywhere & SSH from BationSecurityGroup
+      VpcId: !ImportValue VPCID
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          SourceSecurityGroupId: !Ref BationSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub "${SystemName}-${EnvName}-web-sg"
+
+  AppSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub "${SystemName}-${EnvName}-app-security-group"
+      GroupDescription: HTTP and HTTPS from WebSecurityGroup & SSH from BationSecurityGroup
+      VpcId: !ImportValue VPCID
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref WebSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref WebSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          SourceSecurityGroupId: !Ref BationSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub "${SystemName}-${EnvName}-app-sg"
+
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub "${SystemName}-${EnvName}-db-security-group"
+      GroupDescription: 3306 from AppSecurityGroup
+      VpcId: !ImportValue VPCID
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          SourceSecurityGroupId: !Ref AppSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub "${SystemName}-${EnvName}-db-sg"
+
+Outputs:
+  StackBationSecurityGroup:
+    Description: The ID of the BationSecurityGroup
+    Value: !Ref BationSecurityGroup
+    Export:
+      Name: BationSecurityGroup
+
+  StackALBSecurityGroup:
+    Description: The ID of the ALBSecurityGroup
+    Value: !Ref ALBSecurityGroup
+    Export:
+      Name: ALBSecurityGroup
+
+  StackWebSecurityGroup:
+    Description: The ID of the WebSecurityGroup
+    Value: !Ref WebSecurityGroup
+    Export:
+      Name: WebSecurityGroup
+
+  StackAppSecurityGroup:
+    Description: The ID of the AppSecurityGroup
+    Value: !Ref AppSecurityGroup
+    Export:
+      Name: AppSecurityGroup
+
+  StackDBSecurityGroup:
+    Description: The ID of the DatabaseSecurityGroup
+    Value: !Ref DatabaseSecurityGroup
+    Export:
+      Name: DatabaseSecurityGroup
